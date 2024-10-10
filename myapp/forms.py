@@ -2,6 +2,8 @@ from django import forms
 
 from myapp.models import Task
 
+from django.contrib.auth.models import User
+
 class TaskForm(forms.ModelForm):
 
     class Meta:
@@ -10,7 +12,7 @@ class TaskForm(forms.ModelForm):
 
         # fields="__all__"
 
-        exclude=("created_date","status",)
+        exclude=("created_date","status","user")
 
         widgets={
 
@@ -22,11 +24,30 @@ class TaskForm(forms.ModelForm):
 
             "category":forms.Select(attrs={"class":"form-control"}),
 
-            "user":forms.TextInput(attrs={"class":"form-control"}),
-
+            
         }
 
 
+class RegistrationForm(forms.ModelForm):
+
+    class Meta:
+
+        model=User
+
+        fields=["username","email","password"]
+
+        widgets={
+            "username":forms.TextInput(attrs={"class":"form-control"}),
+            "email":forms.TextInput(attrs={"class":"form-control"}),
+            "password":forms.PasswordInput(attrs={"class":"form-control"}),
+        }
 
 
+        
+class SignInForm(forms.Form):
 
+    username=forms.CharField(max_length=200)
+
+    password=forms.CharField(max_length=200)
+
+   

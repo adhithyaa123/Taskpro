@@ -2,7 +2,9 @@ from django.shortcuts import render,redirect
 
 # Create your views here.
 
-from myapp.forms import TaskForm
+from django.contrib.auth.models import User
+
+from myapp.forms import TaskForm,RegistrationForm,SignInForm
 
 from django.views.generic import View
 
@@ -16,8 +18,17 @@ from django.db.models import Q
 
 from django.db.models import Count
 
+from django.contrib.auth import authenticate,login,logout
+
+from myapp.decorators import signin_required
+
+from django.utils.decorators import method_decorator
+
+from django.views.decorators.cache import never_cache
 
 
+decs=[signin_required,never_cache]
+@method_decorator(decs,name="dispatch")
 class TaskCreateView(View):
 
     def get(self,request,*args,**kwargs):
@@ -32,6 +43,8 @@ class TaskCreateView(View):
 
         if form_instance.is_valid():
 
+            form_instance.instance.user=request.user
+
             form_instance.save()
 
             messages.success(request,"created suucessfully")
@@ -45,9 +58,12 @@ class TaskCreateView(View):
             return render(request,"task_create.html",{"form":form_instance})        
 
 
+@method_decorator(decs,name="dispatch")
 class TaskListView(View):
 
     def get(self,request,*args,**kwargs):
+
+
 
         search_text=request.GET.get("search_text")         
 
@@ -55,13 +71,15 @@ class TaskListView(View):
 
         if selected_category =="all":
 
-            qs=Task.objects.all()
+            qs=Task.objects.filter(user=request.user)
 
         else:
 
-            qs=Task.objects.filter(category=selected_category)    
+            qs=Task.objects.filter(category=selected_category,user=request.user)    
 
         if search_text!=None:
+
+            qs=Task.objects.filter(user=request.user)
 
             qs=Task.objects.filter(Q(title__icontains=search_text)|Q(description__contains=search_text))       
 
@@ -69,7 +87,7 @@ class TaskListView(View):
 
        
 
-
+@method_decorator(decs,name="dispatch")
 class TaskDetailView(View):
 
     def get(self,request,*args,**kwargs):
@@ -80,6 +98,8 @@ class TaskDetailView(View):
 
         return render(request,"task_detail.html",{"task":qs})    
 
+
+@method_decorator(decs,name="dispatch")
 class TaskUpdateView(View):
 
     def get(self,request,*args,**kwargs):
@@ -157,7 +177,7 @@ class TaskUpdateView(View):
             return render(request,"task_update.html",{"form":form_instance})  
 
 
-
+@method_decorator(signin_required,name="dispatch")
 class TaskDeleteView(View):
 
     def get(self,request,*args,**kwargs):
@@ -168,6 +188,8 @@ class TaskDeleteView(View):
 
         return redirect("task_list")
 
+
+@method_decorator(decs,name="dispatch")
 class TaskSummaryView(View):
 
     def get(self,request,*args,**kwargs):
@@ -194,10 +216,90 @@ class TaskSummaryView(View):
 
         }   
 
-        return render(request,"task_summary.html",context)
+        return render(request,"dashboard.html",context)
 
 
 
+class SignUpView(View):
+
+    template_name="register.html"
+
+    def get(self,request,*args,**kwargs):
+
+        form_instance=RegistrationForm()
+
+        return render(request,self.template_name,{"form":form_instance})
+
+    def post(self,request,*args,**kwargs):
+
+        form_instance=RegistrationForm(request.POST)
+
+        if form_instance.is_valid():
+
+            data=form_instance.cleaned_data
+
+            User.objects.create_user(**data)
+
+            return redirect("login")   
+
+        else:
+
+            return render(request,self.template_name,{"form":form_instance})
+
+
+class SignInView(View):
+
+    template_name="login.html"
+
+    def get(self,request,*args,**kwargs):
+
+        form_instance=SignInForm()
+
+        return render(request,self.template_name,{"form":form_instance}) 
+
+    def post(self,request,*args,**kwargs):
+
+        form_instance=SignInForm(request.POST)
+
+        if form_instance.is_valid():
+
+            uname=form_instance.cleaned_data.get("username")    
+
+            pswrd=form_instance.cleaned_data.get("password")
+
+            user_obj=authenticate(request,username=uname,password=pswrd)
+
+            if user_obj:
+
+                login(request,user_obj)
+
+                return redirect("task_list")
+
+        return render(request,self.template_name,{"form":form_instance})  
+
+
+@method_decorator(decs,name="dispatch")
+class SignOutView(View):
+
+    def get(self,request,*args,**kwargs):
+
+        logout(request)
+
+        return redirect("login")              
+
+
+class DashBoard(View):
+
+    template_name="dashboard.html"
+
+    def get(self,request,*args,**kwargs):
+
+        return render(request,self.template_name)
+
+
+                
+
+                                
 
 
 
